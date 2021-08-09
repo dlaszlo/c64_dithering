@@ -13,8 +13,36 @@ Output:
 ## Futtatás
 
 ```
-python3 c64_dithering.py -i example/eagle.jpg -k example/eagle.kla -o example/eagle_conv.png
+python3 c64_dithering.py -i example/eagle.jpg -k example/eagle.kla -o example/eagle_conv.png -m <dithering_model> -p <palette>
 ```
+
+A választható dithering modellek (-m opció):
+- floyd_steinberg
+- jarvis_judice_ninke
+- stucki
+- atkinson
+- burkes
+- sierra
+- two_row_sierra
+- sierra_lite
+
+A modell opció megadása nem kötelező, az alapértelmezett érték: sierra
+
+A választható paletták (-p opció):
+- default 
+  - (a "default" itt nem a konvertáló default palettáját jelenti, hanem paletta név)
+- Pepto
+- c64hq
+- c64s
+- ccs64
+- frodo
+- godot
+- pc64
+- colodore
+- PALette
+
+A paletta megadása nem kötelező, a alapértelmezett érték: Pepto
+
 
 A program futtatásához az opencv-t fel kell telepíteni:
 
@@ -29,7 +57,7 @@ pip install opencv-python
 Az átméretezést a program CV2 segítségével végzi el, Lanczos interpolációt használ (ami a CV2 részeként elérhető). https://en.wikipedia.org/wiki/Lanczos_resampling
 
 
-2. A Floyd-Steinberg dithering algoritmus (https://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering) segítségével konvertáljuk át a képet a C64 színeit használó képre.
+2. Például Floyd-Steinberg dithering algoritmus (https://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering) segítségével konvertáljuk át a képet a C64 színeit használó képre.
 
    A legközelebbi C64 színt a legkisebb távolság alapján választjuk ki:
    ```
@@ -91,4 +119,8 @@ Az átméretezést a program CV2 segítségével végzi el, Lanczos interpoláci
   - This file is licensed under the Creative Commons Attribution 2.0 Generic license.
   - Source: https://commons.m.wikimedia.org/wiki/File:Bald_Eagle_(16211336427).jpg
 
+## Egyéb linkek:
+   - Dithering algoritmusok: https://tannerhelland.com/2012/12/28/dithering-eleven-algorithms-source-code.html
+   - Paletták: https://github.com/Hammarberg/pixcen/blob/master/C64Col.cpp
+   - Távolság számítása két szín között: https://www.compuphase.com/cmetric.htm
 

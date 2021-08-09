@@ -3,147 +3,21 @@ import argparse
 import cv2
 import numpy as np
 
-FLOYD_STEINBERG = {
-    "weight": 1.0 / 16.0,
-    "pattern": [
-        (0, 1, 7.0),
-        (1, -1, 3.0),
-        (1, 0, 5.0),
-        (1, 1, 1.0),
-    ]
-}
-
-JARVIS_JUDICE_NINKE = {
-    "weight": 1.0 / 48.0,
-    "pattern": [
-        (0, 1, 7.0),
-        (0, 2, 5.0),
-        (1, -2, 3.0),
-        (1, -1, 5.0),
-        (1, 0, 7.0),
-        (1, 1, 5.0),
-        (1, 2, 3.0),
-        (2, -2, 1.0),
-        (2, -1, 3.0),
-        (2, 0, 5.0),
-        (2, 1, 3.0),
-        (2, 2, 1.0)
-    ]
-}
-
-STUCKI = {
-    "weight": 1.0 / 42.0,
-    "pattern": [
-        (0, 1, 8.0),
-        (0, 2, 4.0),
-        (1, -2, 2.0),
-        (1, -1, 4.0),
-        (1, 0, 8.0),
-        (1, 1, 4.0),
-        (1, 2, 2.0),
-        (2, -2, 1.0),
-        (2, -1, 2.0),
-        (2, 0, 4.0),
-        (2, 1, 2.0),
-        (2, 2, 1.0)
-    ]
-}
-
-ATKINSON = {
-    "weight": 1.0 / 8.0,
-    "pattern": [
-        (0, 1, 1.0),
-        (0, 2, 1.0),
-        (1, -1, 1.0),
-        (1, 0, 1.0),
-        (1, 1, 1.0),
-        (2, 0, 1.0)
-    ]
-}
-
-BURKES = {
-    "weight": 1.0 / 32.0,
-    "pattern": [
-        (0, 1, 8.0),
-        (0, 2, 4.0),
-        (1, -2, 2.0),
-        (1, -1, 4.0),
-        (1, 0, 8.0),
-        (1, 1, 4.0),
-        (1, 2, 2.0)
-    ]
-}
-
-SIERRA = {
-    "weight": 1.0 / 32.0,
-    "pattern": [
-        (0, 1, 5.0),
-        (0, 2, 3.0),
-        (1, -2, 2.0),
-        (1, -1, 4.0),
-        (1, 0, 5.0),
-        (1, 1, 4.0),
-        (1, 2, 2.0),
-        (2, -1, 2.0),
-        (2, 0, 3.0),
-        (2, 1, 2.0)
-    ]
-}
-
-TWO_ROW_SIERRA = {
-    "weight": 1.0 / 16.0,
-    "pattern": [
-        (0, 1, 4.0),
-        (0, 2, 3.0),
-        (1, -2, 1.0),
-        (1, -1, 2.0),
-        (1, 0, 3.0),
-        (1, 1, 2.0),
-        (1, 2, 1.0)
-    ]
-}
-
-SIERRA_LITE = {
-    "weight": 1.0 / 4.0,
-    "pattern": [
-        (0, 1, 2.0),
-        (1, -1, 1.0),
-        (1, 0, 1.0)
-    ]
-}
-
-BLACK = (0.0, 0.0, 0.0)
-WHITE = (255.0, 255.0, 255.0)
-RED = (43.0, 55.0, 104.0)
-CYAN = (178.0, 164.0, 112.0)
-PURPLE = (134.0, 61.0, 111.0)
-GREEN = (67.0, 141.0, 88.0)
-BLUE = (121.0, 40.0, 53.0)
-YELLOW = (111.0, 199.0, 184.0)
-ORANGE = (37.0, 79.0, 111.0)
-BROWN = (0.0, 57.0, 67.0)
-LIGHT_RED = (89.0, 103.0, 154.0)
-DARK_GREY = (68.0, 68.0, 68.0)
-GREY = (108.0, 108.0, 108.0)
-LIGHT_GREEN = (132.0, 210.0, 154.0)
-LIGHT_BLUE = (181.0, 94.0, 108.0)
-LIGHT_GREY = (149.0, 149.0, 149.0)
-
-COLORS = [BLACK, WHITE, RED, CYAN,
-          PURPLE, GREEN, BLUE, YELLOW,
-          ORANGE, BROWN, LIGHT_RED, DARK_GREY,
-          GREY, LIGHT_GREEN, LIGHT_BLUE, LIGHT_GREY]
+from c64_palette import get_palette
+from c64_palette import palettes
+from dithering_models import dithering_models
+from dithering_models import get_dithering_model
 
 color_map = []
 color2_map = []
 
 
-def init_colors():
+def init_colors(palette):
     print("Initialize colors #1")
     for y in range(25):
         row = []
         for x in range(40):
-            row.append(COLORS)
+            row.append(palette)
         color_map.append(row)
 
 
@@ -154,7 +28,9 @@ def get_nearest_color(colors, bgr: (float, float, float)):
     (be, ge, re) = (0, 0, 0)
     for color in colors:
         (bc, gc, rc) = color
-        d = pow(bs - bc, 2) + pow(gs - gc, 2) + pow(rs - rc, 2)
+        # https://www.compuphase.com/cmetric.htm
+        rmean = (rs + rc) / 2
+        d = ((767 - rmean) * pow(bs - bc, 2) / 256) + 4 * pow(gs - gc, 2) + ((512 + rmean) * pow(rs - rc, 2) / 256)
         if pd is None or pd > d:
             (bt, gt, rt) = color
             (be, ge, re) = (bs - bt, gs - gt, rs - rt)
@@ -214,7 +90,7 @@ def add_error(color, error, weight):
     )
 
 
-def dithering2(model, cm, image, p):
+def dithering(model, cm, image, p):
     print(f"Dithering pass #{p} ", end="")
     dithered = image.copy()
     for y in range(200):
@@ -243,7 +119,7 @@ def dithering2(model, cm, image, p):
     return dithered
 
 
-def save_kla(kla_name, background, dithered):
+def save_kla(kla_name, background, dithered, palette):
     address = bytearray()
     address.append(0x00)
     address.append(0x60)
@@ -254,7 +130,7 @@ def save_kla(kla_name, background, dithered):
     colormem = bytearray()
 
     bgmem = bytearray()
-    bgmem.append(COLORS.index(background))
+    bgmem.append(palette.index(background))
 
     print("Check colors and convert to KLA")
     for cy in range(25):
@@ -265,7 +141,7 @@ def save_kla(kla_name, background, dithered):
                     px = cx * 4 + xx
                     py = cy * 8 + yy
                     c = tuple(dithered[py, px])
-                    if c not in COLORS:
+                    if c not in palette:
                         raise ValueError("Invalid color")
                     if c != background:
                         if c in colors:
@@ -281,9 +157,9 @@ def save_kla(kla_name, background, dithered):
 
             colors = dict(sorted(colors.items(), key=lambda item: item[1], reverse=True))
 
-            s1 = COLORS.index(list(colors.keys())[0]) if len(colors) > 0 else 0
-            s2 = COLORS.index(list(colors.keys())[1]) if len(colors) > 1 else 0
-            c1 = COLORS.index(list(colors.keys())[2]) if len(colors) > 2 else 0
+            s1 = palette.index(list(colors.keys())[0]) if len(colors) > 0 else 0
+            s2 = palette.index(list(colors.keys())[1]) if len(colors) > 1 else 0
+            c1 = palette.index(list(colors.keys())[2]) if len(colors) > 2 else 0
             screenmem.append(((s1 << 4) & 0xf0) | (s2 & 0x0f))
             colormem.append(c1)
 
@@ -308,34 +184,46 @@ def save_kla(kla_name, background, dithered):
         f.flush()
 
 
-def convert(inputfile, outputfile, klaname):
-    print(f"Read file: {inputfile}")
-    image = cv2.imread(inputfile)
+def convert(input_file, output_file, kla_name, model_name, palette_name):
+    model = get_dithering_model(model_name)
+    print(f"Model: {model['name']}")
+    palette = get_palette(palette_name)
+    print(f"Palette: {palette['name']}")
+    print(f"Read file: {input_file}")
+
+    image = cv2.imread(input_file)
     resized_image = cv2.resize(image, (160, 200), interpolation=cv2.INTER_LANCZOS4)
     resized_image = resized_image.astype(np.float32)
 
-    init_colors()
+    init_colors(palette["colors"])
 
-    dithered1 = dithering2(SIERRA, color_map, resized_image, 1)
+    dithered1 = dithering(model, color_map, resized_image, 1)
 
     background = get_background_color(resized_image, dithered1)
 
     init_colors2(background, dithered1)
 
-    dithered2 = dithering2(SIERRA, color2_map, resized_image, 2)
+    dithered2 = dithering(model, color2_map, resized_image, 2)
 
     resized_dithered = cv2.resize(dithered2, (320, 200), interpolation=cv2.INTER_NEAREST)
 
-    save_kla(klaname, background, dithered2)
+    save_kla(kla_name, background, dithered2, palette["colors"])
 
-    print(f"Save file: {outputfile}")
-    cv2.imwrite(outputfile, resized_dithered)
+    print(f"Save file: {output_file}")
+    cv2.imwrite(output_file, resized_dithered)
 
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--image", required=True, help="Original image")
 ap.add_argument("-k", "--kla", required=True, help="KLA image")
 ap.add_argument("-o", "--output", required=True, help="Output PNG image")
+
+ap.add_argument("-m", "--model", required=False, default="sierra",
+                help=f"Dithering models: {dithering_models()}, Default: sierra")
+
+ap.add_argument("-p", "--palette", required=False, default="Pepto",
+                help=f"Palettes: {palettes()}, Default: Pepto")
+
 args = vars(ap.parse_args())
 
-convert(args["image"], args["output"], args["kla"])
+convert(args["image"], args["output"], args["kla"], args["model"], args["palette"])
